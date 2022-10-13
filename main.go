@@ -1,6 +1,8 @@
 // Código exemplo para o trabaho de sistemas distribuidos (eleicao em anel)
 // By Cesar De Rose - 2022
-// 1 - fazer eleicao
+
+// 0 - comecar eleicao
+// 1 - eleicao
 // 2 - novo lider
 
 package main
@@ -32,14 +34,15 @@ var (
 func ElectionControler(in chan int) {
 	defer wg.Done()
 
+	// fazer eleicao
 	var temp mensagem
-	temp.tipo = 1
+	temp.tipo = 0
 	temp.corpo[0] = -1
 	temp.corpo[1] = -1
 	temp.corpo[2] = -1
 
-	chans[2] <- temp // pedir eleição para o processo 0
 	fmt.Printf("Controle: eleicao enviada \n")
+	chans[2] <- temp   // pede eleição para o processo 0
 	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
 }
 
@@ -49,27 +52,40 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 	temp := <-in
 	fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2])
 
-	if temp.tipo == 1 {
-		temp.corpo[TaskId-1] = TaskId
-		out <- temp
+	if temp.tipo == 0 {
+
+		pacote_eleicao.tipo = 1
+		pacote_eleicao.corpo[0] = -1
+		pacote_eleicao.corpo[1] = -1
+		pacote_eleicao.corpo[2] = -1
+		pacote_eleicao.corpo[TaskId-1] = TaskId
+
+		out <- pacote_eleicao
 
 		fmt.Printf("%2d: enviei próximo anel\n", TaskId)
 
-		if TaskId == lider {
-			// le a votacao
-			temp := <-in
-			fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2])
-			// decide quem eh o lider e escreve
-			// avisa o controle
-			controle <- -1
-			fmt.Printf("%2d: enviei confirmação pro controle\n", TaskId)
-		}
+		// le a votacao
+		temp := <-in
+		fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2])
+		// decide quem eh o lider e escreve
+		temp.tipo = 2
+		// avisa o controle
+		controle <- -1
+		fmt.Printf("%2d: enviei confirmação pro controle\n", TaskId)
+	}
+	if temp.tipo == 1 {
+		// passa seu id pro ring
+		temp.corpo[TaskId-1] = TaskId
+		out <- temp
+		fmt.Printf("%2d: enviei próximo anel\n", TaskId)
 	}
 	if temp.tipo == 2 {
 		fmt.Println("entendi que temos um novo lider")
 		temp.corpo[TaskId-1] = TaskId
 		out <- temp
+		fmt.Printf("%2d: enviei próximo anel\n", TaskId)
 	}
+
 	fmt.Printf("%2d: terminei \n", TaskId)
 }
 
