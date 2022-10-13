@@ -1,2 +1,3 @@
-# t2-concorrente
-t2
+# T2
+
+    go run main.go
