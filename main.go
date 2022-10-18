@@ -4,6 +4,8 @@
 // 0 - comecar eleicao
 // 1 - eleicao
 // 2 - novo lider
+// 5 - matar
+// 6 - voltar a vida
 
 package main
 
@@ -28,7 +30,6 @@ var (
 	pacote_eleicao mensagem
 	controle       = make(chan int)
 	wg             sync.WaitGroup // wg is used to wait for the program to finish
-	lider          int            = 1
 )
 
 func ElectionControler(in chan int) {
@@ -49,11 +50,19 @@ func ElectionControler(in chan int) {
 func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 	defer wg.Done()
 
+	lider := 0
+	estou_vivo := true
+
 	temp := <-in
+
 	fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2])
 
-	if temp.tipo == 0 {
+	if estou_vivo == false {
+		fmt.Printf("%2d: estou morto, nao posso votar.", TaskId)
+		out <- temp
+	}
 
+	if temp.tipo == 0 {
 		pacote_eleicao.tipo = 1
 		pacote_eleicao.corpo[0] = -1
 		pacote_eleicao.corpo[1] = -1
@@ -66,24 +75,33 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 
 		// le a votacao
 		temp := <-in
+
 		fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2])
+
 		// decide quem eh o lider e escreve
 		temp.tipo = 2
-		// avisa o controle
+		// nessa linha vai um sort
+		//lider = temp.corpo[0]
+
+		// poe a informacao no ring
+		// e avisa o controle
+		//out <- temp
 		controle <- -1
 		fmt.Printf("%2d: enviei confirmação pro controle\n", TaskId)
-	}
-	if temp.tipo == 1 {
+
+	} else if temp.tipo == 1 {
 		// passa seu id pro ring
 		temp.corpo[TaskId-1] = TaskId
 		out <- temp
 		fmt.Printf("%2d: enviei próximo anel\n", TaskId)
-	}
-	if temp.tipo == 2 {
+
+	} else if temp.tipo == 2 {
 		fmt.Println("entendi que temos um novo lider")
-		temp.corpo[TaskId-1] = TaskId
+		//lider = temp.corpo[0]
+		fmt.Printf("Lider: %2d\n", lider)
 		out <- temp
 		fmt.Printf("%2d: enviei próximo anel\n", TaskId)
+
 	}
 
 	fmt.Printf("%2d: terminei \n", TaskId)
