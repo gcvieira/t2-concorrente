@@ -1,6 +1,12 @@
 // Código exemplo para o trabaho de sistemas distribuidos (eleicao em anel)
 // By Cesar De Rose - 2022
 
+// 0 - comecar eleicao
+// 1 - eleicao
+// 2 - novo lider
+// 5 - matar
+// 6 - voltar a vida
+
 package main
 
 import (
@@ -14,52 +20,90 @@ type mensagem struct {
 }
 
 var (
-	mutex           sync.Mutex        // mutex is used to define a critical section of code
+	mutex           sync.Mutex // mutex is used to define a critical section of code
 	simulation_time int        = 0
-	chans                      = []chan mensagem { // vetor de canais para formar o anel de eleicao - chan[0], chan[1] and chan[2] ...
+	chans                      = []chan mensagem{ // vetor de canais para formar o anel de eleicao - chan[0], chan[1] and chan[2] ...
 		make(chan mensagem),
 		make(chan mensagem),
 		make(chan mensagem),
 	}
 	pacote_eleicao mensagem
 	controle       = make(chan int)
-	wg             sync.WaitGroup      // wg is used to wait for the program to finish
+	wg             sync.WaitGroup // wg is used to wait for the program to finish
 )
 
 func ElectionControler(in chan int) {
 	defer wg.Done()
 
+	// fazer eleicao
 	var temp mensagem
-
-	temp.tipo = 1
+	temp.tipo = 0
 	temp.corpo[0] = -1
 	temp.corpo[1] = -1
 	temp.corpo[2] = -1
 
-	chans[2] <- temp // pedir eleição para o processo 0
 	fmt.Printf("Controle: eleicao enviada \n")
-
+	chans[2] <- temp   // pede eleição para o processo 0
 	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
 }
 
 func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 	defer wg.Done()
 
+	lider := 0
+	estou_vivo := true
+
 	temp := <-in
 
 	fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2])
-	temp.corpo[TaskId] = TaskId
 
-	out <- temp
-	fmt.Printf("%2d: enviei próximo anel \n", TaskId)
+	if estou_vivo == false {
+		fmt.Printf("%2d: estou morto, nao posso votar.", TaskId)
+		out <- temp
+	}
 
-	if TaskId == 0 {
+	if temp.tipo == 0 {
+		pacote_eleicao.tipo = 1
+		pacote_eleicao.corpo[0] = -1
+		pacote_eleicao.corpo[1] = -1
+		pacote_eleicao.corpo[2] = -1
+		pacote_eleicao.corpo[TaskId-1] = TaskId
+
+		out <- pacote_eleicao
+
+		fmt.Printf("%2d: enviei próximo anel\n", TaskId)
+
+		// le a votacao
 		temp := <-in
+
 		fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2])
-		controle <- -5
-		fmt.Printf("%2d: enviei confirmação controle \n", TaskId)
+
+		// decide quem eh o lider e escreve
+		temp.tipo = 2
+		// nessa linha vai um sort
+		//lider = temp.corpo[0]
+
+		// poe a informacao no ring
+		// e avisa o controle
+		//out <- temp
+		controle <- -1
+		fmt.Printf("%2d: enviei confirmação pro controle\n", TaskId)
+
+	} else if temp.tipo == 1 {
+		// passa seu id pro ring
+		temp.corpo[TaskId-1] = TaskId
+		out <- temp
+		fmt.Printf("%2d: enviei próximo anel\n", TaskId)
+
+	} else if temp.tipo == 2 {
+		fmt.Println("entendi que temos um novo lider")
+		//lider = temp.corpo[0]
+		fmt.Printf("Lider: %2d\n", lider)
+		out <- temp
+		fmt.Printf("%2d: enviei próximo anel\n", TaskId)
 
 	}
+
 	fmt.Printf("%2d: terminei \n", TaskId)
 }
 
@@ -69,9 +113,9 @@ func main() {
 
 	// criar os processo do anel de eleicao
 
-	go ElectionStage(0, chans[2], chans[0])
-	go ElectionStage(1, chans[0], chans[1])
-	go ElectionStage(2, chans[1], chans[2])
+	go ElectionStage(1, chans[2], chans[0])
+	go ElectionStage(2, chans[0], chans[1])
+	go ElectionStage(3, chans[1], chans[2])
 
 	fmt.Println("\n   Anel de processos criado")
 
@@ -79,7 +123,7 @@ func main() {
 
 	go ElectionControler(controle)
 
-	fmt.Println("\n   Processo controlador criado\n")
+	fmt.Println("\n   Processo controlador criado")
 
 	wg.Wait() // Wait for the goroutines to finish
 }
