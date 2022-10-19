@@ -36,6 +36,7 @@ func ElectionControler(in chan int) {
 	defer wg.Done()
 
 	// fazer eleicao
+	/*
 	var temp mensagem
 	temp.tipo = 0
 	temp.corpo[0] = -1
@@ -45,6 +46,29 @@ func ElectionControler(in chan int) {
 	fmt.Printf("Controle: eleicao enviada \n")
 	chans[2] <- temp   // pede eleição para o processo 0
 	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
+	*/
+
+	var temp mensagem
+	temp.tipo = 5
+	temp.corpo[0] = -1
+	temp.corpo[1] = -1
+	temp.corpo[2] = -1
+
+	fmt.Printf("Controle: matei um\n")
+	chans[1] <- temp   // mata o processo 1
+	fmt.Printf("Controle: kill confirmed %d\n", <-in) // receber e imprimir confirmação
+
+	/*
+	var temp mensagem
+	temp.tipo = 6
+	temp.corpo[0] = -1
+	temp.corpo[1] = -1
+	temp.corpo[2] = -1
+
+	fmt.Printf("Controle: renascimento enviado\n")
+	chans[1] <- temp   // renasce o processo 3
+	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
+	*/
 }
 
 func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
@@ -55,53 +79,76 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 
 	temp := <-in
 
-	fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2])
+	fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]  - %t (lider=%d)\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2], estou_vivo, lider)
 
-	if estou_vivo == false {
-		fmt.Printf("%2d: estou morto, nao posso votar.", TaskId)
+	if !estou_vivo {
+		fmt.Printf("%2d: estou morto, nao posso fazer nada.", TaskId)
 		out <- temp
 	}
 
-	if temp.tipo == 0 {
-		pacote_eleicao.tipo = 1
-		pacote_eleicao.corpo[0] = -1
-		pacote_eleicao.corpo[1] = -1
-		pacote_eleicao.corpo[2] = -1
-		pacote_eleicao.corpo[TaskId-1] = TaskId
+	switch temp.tipo {
+		case 0:
+		{
+			pacote_eleicao.tipo = 1
+			pacote_eleicao.corpo[0] = -1
+			pacote_eleicao.corpo[1] = -1
+			pacote_eleicao.corpo[2] = -1
+			pacote_eleicao.corpo[TaskId-1] = TaskId
 
-		out <- pacote_eleicao
+			out <- pacote_eleicao
 
-		fmt.Printf("%2d: enviei próximo anel\n", TaskId)
+			fmt.Printf("%2d: enviei próximo anel\n", TaskId)
 
-		// le a votacao
-		temp := <-in
+			// le a votacao
+			temp := <-in
 
-		fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2])
+			fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]  - %t (lider=%d)\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2], estou_vivo, lider)
 
-		// decide quem eh o lider e escreve
-		temp.tipo = 2
-		// nessa linha vai um sort
-		//lider = temp.corpo[0]
+			// decide quem eh o lider e escreve
+			temp.tipo = 2
+			// nessa linha vai um sort
+			//lider = temp.corpo[0]
 
-		// poe a informacao no ring
-		// e avisa o controle
-		//out <- temp
-		controle <- -1
-		fmt.Printf("%2d: enviei confirmação pro controle\n", TaskId)
-
-	} else if temp.tipo == 1 {
-		// passa seu id pro ring
-		temp.corpo[TaskId-1] = TaskId
-		out <- temp
-		fmt.Printf("%2d: enviei próximo anel\n", TaskId)
-
-	} else if temp.tipo == 2 {
-		fmt.Println("entendi que temos um novo lider")
-		//lider = temp.corpo[0]
-		fmt.Printf("Lider: %2d\n", lider)
-		out <- temp
-		fmt.Printf("%2d: enviei próximo anel\n", TaskId)
-
+			// poe a informacao no ring
+			// e avisa o controle
+			//out <- temp
+			controle <- -1
+			fmt.Printf("%2d: enviei confirmação pro controle\n", TaskId)
+		}
+		case 1:
+		{
+			// passa seu id pro ring
+			temp.corpo[TaskId-1] = TaskId
+			out <- temp
+			fmt.Printf("%2d: enviei próximo anel\n", TaskId)
+		}
+		case 2:
+		{
+			fmt.Println("entendi que temos um novo lider")
+			//lider = temp.corpo[0]
+			fmt.Printf("novo lider: %2d\n", lider)
+			out <- temp
+			fmt.Printf("%2d: enviei próximo anel\n", TaskId)
+		}
+		case 5:
+		{
+			estou_vivo = false
+			fmt.Printf("%2d: fui morto - %t\n", TaskId, estou_vivo)
+			controle <- 1
+			fmt.Printf("%2d: enviei confirmação de kill pro controle\n", TaskId)
+		}
+		case 6:
+		{
+			estou_vivo = true
+			fmt.Printf("%2d: renasci - %t\n", TaskId, estou_vivo)
+			controle <- 2
+			fmt.Printf("%2d: enviei confirmação de nascimento pro controle\n", TaskId)
+		}
+		default:
+		{
+			// sair do loop (matar todo mundo e terminar o programa)
+			fmt.Println("mensagem qualquer")
+		}
 	}
 
 	fmt.Printf("%2d: terminei \n", TaskId)
@@ -112,7 +159,6 @@ func main() {
 	wg.Add(4) // Add a count of four, one for each goroutine
 
 	// criar os processo do anel de eleicao
-
 	go ElectionStage(1, chans[2], chans[0])
 	go ElectionStage(2, chans[0], chans[1])
 	go ElectionStage(3, chans[1], chans[2])
@@ -120,7 +166,6 @@ func main() {
 	fmt.Println("\n   Anel de processos criado")
 
 	// criar o processo controlador
-
 	go ElectionControler(controle)
 
 	fmt.Println("\n   Processo controlador criado")
