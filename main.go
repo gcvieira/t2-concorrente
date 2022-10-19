@@ -78,7 +78,7 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 	lider := 0
 	estou_vivo := true
 
-	if TaskId == 1 {
+	if TaskId == 2 {
 		estou_vivo = false
 	}
 
@@ -104,16 +104,20 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 
 			fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]  - %t (lider=%d)\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2], estou_vivo, lider)
 
-			// decide quem eh o lider e escreve
 			temp.tipo = 2
-			// nessa linha vai um sort
-			lider = temp.corpo[0]
+			// decide quem eh o lider e escreve
+			for i := 2 ; i >= 0 ; i-- {
+				if temp.corpo[i] != -1 {
+					lider = temp.corpo[i]
+					break
+				}
+			}
+			fmt.Printf("%2d: achei um novo lider: %d\n", TaskId, lider)
 
 			// poe a informacao no ring
 			// e avisa o controle
 			//out <- temp
 			controle <- -1
-			fmt.Printf("%2d: achei um novo lider: %d\n", TaskId, lider)
 			fmt.Printf("%2d: enviei confirmação pro controle\n", TaskId)
 		}
 		case 1:
@@ -130,7 +134,12 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 		case 2:
 		{
 			fmt.Println("entendi que temos um novo lider")
-			//lider = temp.corpo[0]
+			for i := 2 ; i >= 0 ; i-- {
+				if temp.corpo[i] != -1 {
+					lider = temp.corpo[i]
+					break
+				}
+			}
 			fmt.Printf("novo lider: %2d\n", lider)
 			out <- temp
 			fmt.Printf("%2d: enviei próximo anel\n", TaskId)
