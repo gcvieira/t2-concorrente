@@ -36,46 +36,43 @@ var (
 func ElectionControler(in chan int) {
 	defer wg.Done()
 
-	/*
+	// mata p2
 	var temp mensagem
 	temp.tipo = 5
 	temp.corpo[0] = -1
 	temp.corpo[1] = -1
 	temp.corpo[2] = -1
-
 	fmt.Printf("Controle: matei um\n")
-	chans[1] <- temp   // mata o processo 1
+	chans[1] <- temp   // mata o processo 2
 	fmt.Printf("Controle: kill confirmed %d\n", <-in) // receber e imprimir confirmação
-	*/
 
-	var temp mensagem
+	// eleicao
 	temp.tipo = 0
 	temp.corpo[0] = -1
 	temp.corpo[1] = -1
 	temp.corpo[2] = -1
-
 	fmt.Printf("Controle: eleicao enviada \n")
 	chans[2] <- temp   // pede eleição para o processo 0
 	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
 
-	time.Sleep(time.Second * 2)
+	// espera 2 seg
+	time.Sleep(time.Second * 1)
 
-	temp.tipo = 8
-	fmt.Println("Controle: terminando")
-	chans[2] <- temp
-	//fmt.Printf("Controle: confirmação - terminado %d\n", <-in) // receber e imprimir confirmação
-
-	/*
-	var temp mensagem
 	temp.tipo = 6
 	temp.corpo[0] = -1
 	temp.corpo[1] = -1
 	temp.corpo[2] = -1
-
 	fmt.Printf("Controle: renascimento enviado\n")
-	chans[1] <- temp   // renasce o processo 3
+	chans[1] <- temp   // renasce o processo 2
 	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
-	*/
+
+	// espera 2 seg
+	time.Sleep(time.Second * 1)
+
+	// termina programa
+	temp.tipo = 8
+	fmt.Println("Controle: terminando")
+	chans[2] <- temp
 }
 
 func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
@@ -84,10 +81,6 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 	lider := 0
 	setei_o_lider := false
 	estou_vivo := true
-
-	if TaskId == 2 {
-		estou_vivo = false
-	}
 
 	for {
 
@@ -181,7 +174,6 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 				  out <- temp
 				  fmt.Printf("%2d: finalizando\n", TaskId)
 				  wg.Done()
-				  //break
 			  }
 		}
 	}
