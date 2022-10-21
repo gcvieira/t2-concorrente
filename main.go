@@ -62,7 +62,7 @@ func ElectionControler(in chan int) {
 
 	temp.tipo = 8
 	fmt.Println("Controle: terminando")
-	chans[2] <- temp   // pede eleição para o processo 0
+	chans[2] <- temp
 	//fmt.Printf("Controle: confirmação - terminado %d\n", <-in) // receber e imprimir confirmação
 
 	/*
@@ -117,7 +117,7 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 				  for i := 2 ; i >= 0 ; i-- {
 					  if temp.corpo[i] != -1 {
 						  lider = temp.corpo[i]
-							  break
+						  break
 					  }
 				  }
 				  fmt.Printf("%2d: achei um novo lider: %d\n", TaskId, lider)
@@ -125,15 +125,13 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 				  // poe a informacao no ring
 				  out <- temp
 
-				  // le pra confirmar que todos sabem do novo lider
-				  temp = <-in
-				  fmt.Printf("%2d: recebi confirmacao de lider %d, [ %d, %d, %d ]  - %t (lider=%d)\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2], estou_vivo, lider)
-
 				  // e avisa o controle
 				  controle <- -1
 				  fmt.Printf("%2d: enviei confirmação pro controle\n", TaskId)
 
-				  break
+				  // le pra confirmar que todos sabem do novo lider
+				  temp = <-in
+				  fmt.Printf("%2d: recebi confirmacao de lider %d, [ %d, %d, %d ]  - %t (lider=%d)\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2], estou_vivo, lider)
 			  }
 		  case 1:
 			  {
@@ -158,8 +156,8 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 							  }
 						  }
 					  fmt.Printf("novo lider: %2d\n", lider)
-					  out <- temp
 					  setei_o_lider = true
+					  out <- temp
 					  fmt.Printf("%2d: enviei próximo anel\n", TaskId)
 				  }
 			  }
@@ -180,13 +178,13 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 		  default:
 			  {
 				  // sair do loop (matar todo mundo e terminar o programa)
-				  fmt.Printf("%2d: terminando programa\n", TaskId)
 				  out <- temp
-				  break
+				  fmt.Printf("%2d: finalizando\n", TaskId)
+				  wg.Done()
+				  //break
 			  }
 		}
 	}
-	fmt.Printf("%2d: finalizando\n", TaskId)
 }
 
 func main() {
