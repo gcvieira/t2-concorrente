@@ -89,7 +89,6 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 	defer wg.Done()
 
 	lider := 0
-	setei_o_lider := false
 	estou_vivo := true
 
 	for {
@@ -146,23 +145,19 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 				  }
 				  out <- temp
 				  fmt.Printf("%2d: enviei próximo anel\n", TaskId)
-				  setei_o_lider = false
 			  }
 		  case 2:
 			  {
-				  if !setei_o_lider {
-					  fmt.Println("entendi que temos um novo lider")
-						  for i := 2 ; i >= 0 ; i-- {
-							  if temp.corpo[i] != -1 {
-								  lider = temp.corpo[i]
-								  break
-							  }
-						  }
-					  fmt.Printf("novo lider: %2d\n", lider)
-					  setei_o_lider = true
-					  out <- temp
-					  fmt.Printf("%2d: enviei próximo anel\n", TaskId)
+				  fmt.Println("entendi que temos um novo lider")
+				  for i := 2 ; i >= 0 ; i-- {
+					  if temp.corpo[i] != -1 {
+						  lider = temp.corpo[i]
+						  break
+					  }
 				  }
+				  fmt.Printf("novo lider: %2d\n", lider)
+				  out <- temp
+				  fmt.Printf("%2d: enviei próximo anel\n", TaskId)
 			  }
 		  case 5:
 			  {
