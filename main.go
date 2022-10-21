@@ -55,9 +55,7 @@ func ElectionControler(in chan int) {
 	chans[2] <- temp   // pede eleição para o processo 0
 	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
 
-	// espera 2 seg
-	time.Sleep(time.Second * 1)
-
+	// renasce p2
 	temp.tipo = 6
 	temp.corpo[0] = -1
 	temp.corpo[1] = -1
@@ -66,7 +64,19 @@ func ElectionControler(in chan int) {
 	chans[1] <- temp   // renasce o processo 2
 	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
 
-	// espera 2 seg
+	// espera 1 seg
+	time.Sleep(time.Second * 1)
+
+	// nova eleicao
+	temp.tipo = 0
+	temp.corpo[0] = -1
+	temp.corpo[1] = -1
+	temp.corpo[2] = -1
+	fmt.Printf("Controle: eleicao enviada \n")
+	chans[2] <- temp   // pede eleição para o processo 0
+	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
+
+	// espera 1 seg
 	time.Sleep(time.Second * 1)
 
 	// termina programa
