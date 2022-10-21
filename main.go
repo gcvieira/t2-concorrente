@@ -114,7 +114,6 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 
 				  fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]  - %t (lider=%d)\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2], estou_vivo, lider)
 
-				  temp.tipo = 2
 				  // decide quem eh o lider e escreve
 				  for i := 2 ; i >= 0 ; i-- {
 					  if temp.corpo[i] != -1 {
@@ -123,6 +122,7 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 					  }
 				  }
 				  fmt.Printf("%2d: achei um novo lider: %d\n", TaskId, lider)
+				  temp.tipo = 2
 
 				  // poe a informacao no ring
 				  out <- temp
@@ -148,14 +148,13 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 			  }
 		  case 2:
 			  {
-				  fmt.Println("entendi que temos um novo lider")
 				  for i := 2 ; i >= 0 ; i-- {
 					  if temp.corpo[i] != -1 {
 						  lider = temp.corpo[i]
 						  break
 					  }
 				  }
-				  fmt.Printf("novo lider: %2d\n", lider)
+				  fmt.Printf("%2d: entendi que temos um novo lider: %d", TaskId, lider)
 				  out <- temp
 				  fmt.Printf("%2d: enviei próximo anel\n", TaskId)
 			  }
