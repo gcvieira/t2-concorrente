@@ -1,11 +1,5 @@
-// Código exemplo para o trabaho de sistemas distribuidos (eleicao em anel)
-// By Cesar De Rose - 2022
-
-// 0 - comecar eleicao
-// 1 - eleicao
-// 2 - novo lider
-// 5 - matar
-// 6 - voltar a vida
+// TPD Fundamentos de processamento paralelo e distribuído (eleicao em anel)
+// Guilherme, Lucca e Marcelo
 
 package main
 
@@ -21,16 +15,28 @@ type mensagem struct {
 }
 
 var (
-	mutex           sync.Mutex // mutex is used to define a critical section of code
-	simulation_time int        = 0
-	chans                      = []chan mensagem{ // vetor de canais para formar o anel de eleicao - chan[0], chan[1] and chan[2] ...
+	// mutex is used to define a critical section of code
+	mutex sync.Mutex
+	// vetor de canais para formar o anel de eleicao - chan[0], chan[1] and chan[2] ...
+	chans = []chan mensagem{
 		make(chan mensagem),
 		make(chan mensagem),
 		make(chan mensagem),
 	}
+	simulation_time int  = 0
 	pacote_eleicao mensagem
-	controle       = make(chan int)
-	wg             sync.WaitGroup // wg is used to wait for the program to finish
+	controle = make(chan int)
+	// wg is used to wait for the program to finish
+	wg sync.WaitGroup
+)
+
+// variaveis de controle do tipo de mensagem
+const (
+	NovaEleicao     = 0
+	VotarEleicao    = 1
+	NovoLiderAchado = 2
+	Matar           = 3
+	Renascer        = 4
 )
 
 func ElectionControler(in chan int) {
@@ -38,7 +44,7 @@ func ElectionControler(in chan int) {
 
 	// mata p2
 	var temp mensagem
-	temp.tipo = 5
+	temp.tipo = Matar
 	temp.corpo[0] = -1
 	temp.corpo[1] = -1
 	temp.corpo[2] = -1
@@ -47,7 +53,7 @@ func ElectionControler(in chan int) {
 	fmt.Printf("Controle: kill confirmed %d\n", <-in) // receber e imprimir confirmação
 
 	// eleicao
-	temp.tipo = 0
+	temp.tipo = NovaEleicao
 	temp.corpo[0] = -1
 	temp.corpo[1] = -1
 	temp.corpo[2] = -1
@@ -56,7 +62,7 @@ func ElectionControler(in chan int) {
 	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
 
 	// renasce p2
-	temp.tipo = 6
+	temp.tipo = Renascer
 	temp.corpo[0] = -1
 	temp.corpo[1] = -1
 	temp.corpo[2] = -1
@@ -64,11 +70,11 @@ func ElectionControler(in chan int) {
 	chans[1] <- temp   // renasce o processo 2
 	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
 
-	// espera 1 seg
+	// espera 1s
 	time.Sleep(time.Second * 1)
 
 	// nova eleicao
-	temp.tipo = 0
+	temp.tipo = NovaEleicao
 	temp.corpo[0] = -1
 	temp.corpo[1] = -1
 	temp.corpo[2] = -1
@@ -76,7 +82,7 @@ func ElectionControler(in chan int) {
 	chans[2] <- temp   // pede eleição para o processo 0
 	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
 
-	// espera 1 seg
+	// espera 1s
 	time.Sleep(time.Second * 1)
 
 	// termina programa
@@ -97,9 +103,9 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 		fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]  - %t (lider=%d)\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2], estou_vivo, lider)
 
 		switch temp.tipo {
-			case 0:
+			case NovaEleicao:
 			  {
-				  pacote_eleicao.tipo = 1
+				  pacote_eleicao.tipo = VotarEleicao
 				  pacote_eleicao.corpo[0] = -1
 				  pacote_eleicao.corpo[1] = -1
 				  pacote_eleicao.corpo[2] = -1
@@ -122,7 +128,7 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 					  }
 				  }
 				  fmt.Printf("%2d: achei um novo lider: %d\n", TaskId, lider)
-				  temp.tipo = 2
+				  temp.tipo = NovoLiderAchado
 
 				  // poe a informacao no ring
 				  out <- temp
@@ -135,7 +141,7 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 				  temp = <-in
 				  fmt.Printf("%2d: recebi confirmacao de lider %d, [ %d, %d, %d ]  - %t (lider=%d)\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2], estou_vivo, lider)
 			  }
-		  case 1:
+		  case VotarEleicao:
 			  {
 				  // passa seu id pro ring
 				  if estou_vivo {
@@ -146,7 +152,7 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 				  out <- temp
 				  fmt.Printf("%2d: enviei próximo anel\n", TaskId)
 			  }
-		  case 2:
+		  case NovoLiderAchado:
 			  {
 				  for i := 2 ; i >= 0 ; i-- {
 					  if temp.corpo[i] != -1 {
@@ -158,14 +164,14 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 				  out <- temp
 				  fmt.Printf("%2d: enviei próximo anel\n", TaskId)
 			  }
-		  case 5:
+		  case Matar:
 			  {
 				  estou_vivo = false
 				  fmt.Printf("%2d: fui morto - %t\n", TaskId, estou_vivo)
 				  controle <- 5
 				  fmt.Printf("%2d: enviei confirmação de kill pro controle\n", TaskId)
 			  }
-		  case 6:
+		  case Renascer:
 			  {
 				  estou_vivo = true
 				  fmt.Printf("%2d: renasci - %t\n", TaskId, estou_vivo)
