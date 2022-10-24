@@ -6,12 +6,11 @@ package main
 import (
 	"fmt"
 	"sync"
-	"time"
 )
 
 type mensagem struct {
-	tipo  int    // tipo da mensagem para fazer o controle do que fazer (eleição, confirmacao da eleicao)
-	corpo [3]int // conteudo da mensagem para colocar os ids (usar um tamanho ocmpativel com o numero de processos no anel)
+	tipo  int    // tipo da mensagem para fazer o controle do que fazer (eleicao, confirmacao da eleicao)
+	corpo [3]int // conteudo da mensagem para colocar os ids (usar um tamanho compativel com o numero de processos no anel)
 }
 
 var (
@@ -42,15 +41,24 @@ const (
 func ElectionControler(in chan int) {
 	defer wg.Done()
 
-	// mata p2
+	// eleicao
 	var temp mensagem
+	temp.tipo = NovaEleicao
+	temp.corpo[0] = -1
+	temp.corpo[1] = -1
+	temp.corpo[2] = -1
+	fmt.Printf("Controle: eleicao enviada \n")
+	chans[1] <- temp   // p2 faz eleicao
+	fmt.Printf("Controle: confirmacao eleicao %d\n", <-in) // receber e imprimir confirmacao
+
+	// desativa p2
 	temp.tipo = Matar
 	temp.corpo[0] = -1
 	temp.corpo[1] = -1
 	temp.corpo[2] = -1
-	fmt.Printf("Controle: matei um\n")
-	chans[1] <- temp   // mata o processo 2
-	fmt.Printf("Controle: kill confirmed %d\n", <-in) // receber e imprimir confirmação
+	fmt.Printf("Controle: desativando p2\n")
+	chans[1] <- temp   // desativa p2
+	fmt.Printf("Controle: desativado confirmacao %d\n", <-in) // receber e imprimir confirmacao
 
 	// eleicao
 	temp.tipo = NovaEleicao
@@ -58,20 +66,17 @@ func ElectionControler(in chan int) {
 	temp.corpo[1] = -1
 	temp.corpo[2] = -1
 	fmt.Printf("Controle: eleicao enviada \n")
-	chans[2] <- temp   // pede eleição para o processo 0
-	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
+	chans[2] <- temp   // p0 faz eleicao
+	fmt.Printf("Controle: confirmacao eleicao %d\n", <-in) // receber e imprimir confirmacao
 
-	// renasce p2
+	// ativa p2
 	temp.tipo = Renascer
 	temp.corpo[0] = -1
 	temp.corpo[1] = -1
 	temp.corpo[2] = -1
-	fmt.Printf("Controle: renascimento enviado\n")
-	chans[1] <- temp   // renasce o processo 2
-	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
-
-	// espera 1s
-	time.Sleep(time.Second * 1)
+	fmt.Printf("Controle: ativar p2 enviado\n")
+	chans[1] <- temp   // renasce p2
+	fmt.Printf("Controle: ativado confirmacao %d\n", <-in) // receber e imprimir confirmacao
 
 	// nova eleicao
 	temp.tipo = NovaEleicao
@@ -79,11 +84,8 @@ func ElectionControler(in chan int) {
 	temp.corpo[1] = -1
 	temp.corpo[2] = -1
 	fmt.Printf("Controle: eleicao enviada \n")
-	chans[2] <- temp   // pede eleição para o processo 0
-	fmt.Printf("Controle: confirmação %d\n", <-in) // receber e imprimir confirmação
-
-	// espera 1s
-	time.Sleep(time.Second * 1)
+	chans[2] <- temp   // p0 faz eleicao
+	fmt.Printf("Controle: confirmacao %d\n", <-in) // receber e imprimir confirmacao
 
 	// termina programa
 	temp.tipo = 8
@@ -92,8 +94,6 @@ func ElectionControler(in chan int) {
 }
 
 func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
-	defer wg.Done()
-
 	lider := 0
 	estou_vivo := true
 
@@ -113,7 +113,7 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 
 				  out <- pacote_eleicao
 
-				  fmt.Printf("%2d: enviei próximo anel\n", TaskId)
+				  fmt.Printf("%2d: enviei proximo anel\n", TaskId)
 
 				  // le a votacao
 				  temp := <-in
@@ -133,13 +133,13 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 				  // poe a informacao no ring
 				  out <- temp
 
-				  // e avisa o controle
-				  controle <- -1
-				  fmt.Printf("%2d: enviei confirmação pro controle\n", TaskId)
-
 				  // le pra confirmar que todos sabem do novo lider
 				  temp = <-in
 				  fmt.Printf("%2d: recebi confirmacao de lider %d, [ %d, %d, %d ]  - %t (lider=%d)\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2], estou_vivo, lider)
+
+				  // e avisa o controle
+				  controle <- 0
+				  fmt.Printf("%2d: enviei confirmacao pro controle\n", TaskId)
 			  }
 		  case VotarEleicao:
 			  {
@@ -150,7 +150,7 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 					  fmt.Printf("%2d: estou morto, nao posso fazer nada.\n", TaskId)
 				  }
 				  out <- temp
-				  fmt.Printf("%2d: enviei próximo anel\n", TaskId)
+				  fmt.Printf("%2d: enviei proximo anel\n", TaskId)
 			  }
 		  case NovoLiderAchado:
 			  {
@@ -160,23 +160,23 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem) {
 						  break
 					  }
 				  }
-				  fmt.Printf("%2d: entendi que temos um novo lider: %d", TaskId, lider)
+				  fmt.Printf("%2d: entendi que temos um novo lider: %d\n", TaskId, lider)
 				  out <- temp
-				  fmt.Printf("%2d: enviei próximo anel\n", TaskId)
+				  fmt.Printf("%2d: enviei proximo anel\n", TaskId)
 			  }
 		  case Matar:
 			  {
 				  estou_vivo = false
 				  fmt.Printf("%2d: fui morto - %t\n", TaskId, estou_vivo)
-				  controle <- 5
-				  fmt.Printf("%2d: enviei confirmação de kill pro controle\n", TaskId)
+				  controle <- Matar
+				  fmt.Printf("%2d: enviei confirmacao de kill pro controle\n", TaskId)
 			  }
 		  case Renascer:
 			  {
 				  estou_vivo = true
 				  fmt.Printf("%2d: renasci - %t\n", TaskId, estou_vivo)
-				  controle <- 6
-				  fmt.Printf("%2d: enviei confirmação de nascimento pro controle\n", TaskId)
+				  controle <- Renascer
+				  fmt.Printf("%2d: enviei confirmacao de nascimento pro controle\n", TaskId)
 			  }
 		  default:
 			  {
